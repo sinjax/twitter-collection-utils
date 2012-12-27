@@ -2,50 +2,52 @@ import twitter
 import time
 import os
 import sys
-import oauth2
+from .oauth import oauthToken
+from optparse import OptionParser
 
-def loadTokensIndex(loc):
-  f = file(loc,"r")
-  index = []
-  for line in f.readlines():
-    if line.startswith("#"): continue
-    parts = [x.strip() for x in line.split(",")]
-    (consumer_key,consumer_secret,auth_key,auth_secret) = parts
-    tokens = dict()
-    tokens["CLIENT_KEY"] = consumer_key
-    tokens["CLIENT_SECRET"] = consumer_secret
-    tokens["ATOKEN_KEY"] = auth_key
-    tokens["ATOKEN_SECRET"] = auth_secret
-    index = index + [tokens]
-  return index
+parser = OptionParser()
+parser.add_option("-u", "--user-file", dest="USER_FILE",help="The file containing the users to follow",default=None)
+parser.add_option("-t", "--tokens-file", dest="TOKENS_FILE",help="The twitter auth tokens",default=os.sep.join([os.getenv('HOME'),".twitter_oauth"]))
+parser.add_option("-i", "--iterations", dest="ITER",help="Number of iterations to add the users in",default=10)
+parser.add_option("-w", "--wait", dest="WAIT",help="Time to wait between iterations",default=3600)
 
-CONF_DIR = os.getenv('HOME') # where to find the configuration
-USER_FILE = (sys.argv[1] if len(sys.argv) >= 2 else "user-file")
-CONSUMER = (int(sys.argv[2]) if len(sys.argv) >= 3 else 0)
-ITER = (int(sys.argv[3]) if len(sys.argv) >= 4 else 10)
-WAIT = (int(sys.argv[4]) if len(sys.argv) >= 5 else 3600)
+(options, arguments) = parser.parse_args()
 
-tokensIndex = loadTokensIndex(os.sep.join([CONF_DIR,".twittertokens"]))
-tokens = tokensIndex[CONSUMER]
-c_tw=twitter.Twitter(domain='api.twitter.com',api_version="1",auth=twitter.OAuth(tokens["ATOKEN_KEY"],tokens["ATOKEN_SECRET"],tokens["CLIENT_KEY"],tokens["CLIENT_SECRET"]))
+USER_FILE = options.USER_FILE
+ITER = options.ITER
+WAIT = options.WAIT
+
+c_tw=twitter.Twitter(
+  domain='api.twitter.com',
+  api_version="1.1",
+  auth=oauthToken(options.TOKENS_FILE)
+)
 
 users=[]
-f=open(USER_FILE,'r')
-for line in f:
-  users.append(line.strip())
-f.close()
+if USER_FILE:
+	if os.path.exists(USER_FILE):
+		f=open(USER_FILE,'r')
+		for line in f:
+			users.append(line.strip())
+		f.close()
+	else:
+		print >>sys.stderr,"File: '%s' not found, exiting"%USER_FILE
+		sys.exit(1)
+else:
+	for line in sys.stdin.readlines():
+		users.append(line.strip())
 
 parts = [i for i in xrange(0,len(users),ITER)]
 
 for x in parts:
-  part = users[x:x+ITER]
-  print "Following %d people" % len(part)
-  for person in part:
-    try:
-      c_tw.friendships.create(screen_name=person)
-      print "Following %s" % person
-    except twitter.api.TwitterError, e:
-      print "Could not add %s" % person
-  if x is not parts[-1]:
-    print "Waiting %d seconds" % WAIT
-    time.sleep(WAIT)
+	part = users[x:x+ITER]
+	print "Following %d people" % len(part)
+	for person in part:
+		try:
+			c_tw.friendships.create(screen_name=person)
+			print "Following %s" % person
+		except twitter.api.TwitterError, e:
+			print "Could not add %s" % person
+		if x is not parts[-1]:
+			print "Waiting %d seconds" % time
+			WAIT.sleep(WAIT)
