@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from setuptools import setup, find_packages
+from setuptools import setup
 
 setup(
 	name='twitter_collection_utils',
@@ -11,5 +11,6 @@ setup(
 	url='github.com/danielpreotiuc/twitter-collection-utils',
 	packages=['twitter_collection_utils'],
 	scripts=['bin/dedupl.sh'],
-	requires=['oauth2',],
+	dependency_links = ['https://github.com/brosner/python-oauth2/tarball/master#egg=oauth2-1.0.2'],
+	install_requires=['oauth2','twitter'],
 )
